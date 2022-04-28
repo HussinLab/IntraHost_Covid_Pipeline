@@ -1,4 +1,8 @@
+
+
 file=$1
+
+
 f=$(echo $file | rev | cut -f1 -d'/' | cut -f2- -d'.' | rev)
 mkdir $f
 cd $f
@@ -31,14 +35,14 @@ samtools sort $f.bwa.bam > $f.bwa.sort.bam
 samtools index $f.bwa.sort.bam
 rm $f.bwa.bam $f.bwa.sam
 
-${ivar_path}/ivar trim -i $f.bwa.sort.bam -b $amplicons_path -q 15 -m 30 -s 4 -p $f.bwa.amplicon_trim_smooth -e 
+${ivar_path}/ivar trim -i $f.bwa.sort.bam -b $amplicons_path -q 15 -m 30 -s 4 -p $f.bwa.amplicon_trim_smooth -e > $f.ivar.out 
 
 samtools sort $f.bwa.amplicon_trim_smooth.bam > $f.bwa.amplicon_trim_smooth.sorted.bam
 samtools view -F 2048 -bo $f.bwa.amplicon_trim_smooth.sorted.primaryOnly.bam $f.bwa.amplicon_trim_smooth.sorted.bam
 samtools index $f.bwa.amplicon_trim_smooth.sorted.primaryOnly.bam
-rm $f.bwa.amplicon_trim_smooth
+rm $f.bwa.amplicon_trim_smooth.sorted.bam
 
-samtools mpileup -d 10000 -A -Q 0 $f.bwa.amplicon_trim_smooth.sorted.primaryOnly.bam | ${ivar_path}/ivar consensus -p $f.bwa.amplicon_trim_smooth.primaryOnly.consensus -q 20 -t 0.75 -m 20
+samtools mpileup -d 10000 -A -Q 0 $f.bwa.amplicon_trim_smooth.sorted.primaryOnly.bam | ${ivar_path}/ivar consensus -p $f.bwa.amplicon_trim_smooth.primaryOnly.consensus -q 20 -t 0.75 -m 20 > $f.samtools.mpileup.out
 
 
 ##########################
@@ -50,63 +54,66 @@ module use $MUGQIC_INSTALL_HOME/modulefiles
 
 module load mugqic/qualimap/2.2.1
 
-qualimap bamqc -nt 1 -outformat PDF -bam $f.bwa.amplicon_trim_smooth.sorted.primaryOnly.bam -outdir qualimap/$f --java-mem-size=10G
+qualimap bamqc -nt 1 -outformat PDF -bam $f.bwa.sort.bam -outdir initialBam_$f --java-mem-size=10G
 
+qualimap bamqc -nt 1 -outformat PDF -bam $f.bwa.amplicon_trim_smooth.sorted.primaryOnly.bam -outdir filteredBam_$f --java-mem-size=10G
+
+samtools flagstat $f.bwa.amplicon_trim_smooth.sorted.primaryOnly.bam > $f.samtools_flagstat.out
+
+
+(
 #Library name
-echo "Library_name" $f > $f.stat.tsv
-
-
-#Library type
-libtype=$(grep $f logs/log.$mod.$step | egrep "is paired-end|is single" | cut -d' ' -f3)
-
-#Number of reads having adapters
-nb_r1_ad=$(cat $f.trimmedQ20/${f}_1_fixed.fastq.gz_trimming_report.txt | grep "Reads with adapters:" | awk '{print $4}' | sed 's/,//g' )
-nb_r2_ad=$(cat $f.trimmedQ20/${f}_2_fixed.fastq.gz_trimming_report.txt | grep "Reads with adapters:" | awk '{print $4}' | sed 's/,//g' )
-
-#Number of reads trimmed because of bad quality
-nb_bp1_qual=$(cat $f.trimmedQ20/${f}_1_fixed.fastq.gz_trimming_report.txt | grep "Quality-trimmed:" | awk '{print $2}' | sed 's/,//g' )
-nb_bp2_qual=$(cat $f.trimmedQ20/${f}_2_fixed.fastq.gz_trimming_report.txt | grep "Quality-trimmed:" | awk '{print $2}' | sed 's/,//g' )
+echo "Library_name" $f
 
 #Number of initial reads
-nb_r1=$(cat $f.trimmedQ20/${f}_1_fixed.fastq.gz_trimming_report.txt | grep "sequences processed in total" | awk '{print $1}')
-nb_r2=$(cat $f.trimmedQ20/${f}_2_fixed.fastq.gz_trimming_report.txt | grep "sequences processed in total" | awk '{print $1}')
+cat $f.trimmedQ20/${f}_1_fixed.fastq.gz_trimming_report.txt | grep "sequences processed in total" | awk '{print "input_R1",$1}'
+cat $f.trimmedQ20/${f}_2_fixed.fastq.gz_trimming_report.txt | grep "sequences processed in total" | awk '{print "input_R2",$1}'
+
+#Number of reads having adapters
+cat $f.trimmedQ20/${f}_1_fixed.fastq.gz_trimming_report.txt | grep "Reads with adapters:" | awk '{print "tg_adapters_R1",$4}'
+cat $f.trimmedQ20/${f}_2_fixed.fastq.gz_trimming_report.txt | grep "Reads with adapters:" | awk '{print "tg_adapters_R2",$4}' 
+
+#Number of reads trimmed because of bad quality
+cat $f.trimmedQ20/${f}_1_fixed.fastq.gz_trimming_report.txt | grep "Quality-trimmed:" | awk '{print "tg_badQual_R1",$2}' 
+cat $f.trimmedQ20/${f}_2_fixed.fastq.gz_trimming_report.txt | grep "Quality-trimmed:" | awk '{print "tg_badQual_R2",$2}'
+
 #Number of pairs removed because of one of the read shorter than the threshold (20)
-nb_r_tg=$(cat $f.trimmedQ20/${f}_2_fixed.fastq.gz_trimming_report.txt | grep "Number of sequence pairs removed because at least one read was shorter than the length cutoff " | awk '{print $19}')
+cat $f.trimmedQ20/${f}_2_fixed.fastq.gz_trimming_report.txt | grep "the length cutoff " | awk '{print "tg_too_short",$19}'
 
-#Number of reads mapped
-nb_read_Bam=$(samtools view $f.bwa.sort.bam | cut -f 1 | sort -u | wc -l)
-#verify if bai exists, showing that the bam is ok
-bai_exist=$(ls $f.bwa.sort.bam.bai*  | awk 'END{print NR==1 ? "YES" : "NO"}')
+#Test if the index exist for the bam after bwa and the final one
+ls $f.bwa.sort.bam.bai*  | awk 'END{print NR==1 ? "alignment_index_exist YES" : "alignment_index_exist NO"}'
+ls $f.bwa.amplicon_trim_smooth.sorted.primaryOnly.bam*  | awk 'END{print NR==1 ? "finalBAM_index_exist YES" : "finalBAM_index_exist NO"}'
 
-#Number of reads mapped and trimmed for amplicons 
-last_bam_lines=$(samtools view $f.bwa.amplicon_trim_smooth.sorted.bam  | cut -f 1 | sort -u | wc -l)
-#verify if bai exists, showing that the bam is ok
-last_bai_exist=$(ls $f.bwa.amplicon_trim_smooth.sorted.bam.bai*  | awk 'END{print NR==1 ? "YES" : "NO"}')
+#number of read and trimming 
+cat initialBam_$f/genome_results.txt | grep "number of mapped reads" | awk '{print "mapped_reads_raw",$6}'
+cat initialBam_$f/genome_results.txt | grep "number of supplementary alignments" | awk '{print "supp_alignement",$6}'
+cat $f.ivar.out | grep "Trimmed primers from" | awk '{print "reads_trimmed_with_primers",substr($5,2,length($5)-2)}'
+cat filteredBam_$f/genome_results.txt | grep "number of mapped reads" | awk '{print "primary_trimmed_mapped_reads",$6}'
+cat filteredBam_$f/genome_results.txt | grep "first in pair" | awk '{print "mapped_reads_R1",$10}'
+cat filteredBam_$f/genome_results.txt | grep "second in pair" | awk '{print "mapped_reads_R2",$10}'
+cat filteredBam_$f/genome_results.txt | grep "number of duplicated reads" | awk '{print "duplicated_reads",$7}'
+cat $f.samtools_flagstat.out | grep "properly paired"  | awk '{print "properly_paired",$1}'
+cat filteredBam_$f/genome_results.txt | grep "mean insert size" | awk '{print "mean_insert_size",$5}'
+cat filteredBam_$f/genome_results.txt | grep "median insert size" | awk '{print "median_insert_size",$5}'
+cat filteredBam_$f/genome_results.txt | grep "number of A's" | awk '{print "number_of_A",$5}'
+cat filteredBam_$f/genome_results.txt | grep "number of C's" | awk '{print "number_of_C",$5}'
+cat filteredBam_$f/genome_results.txt | grep "number of G's" | awk '{print "number_of_G",$5}'
+cat filteredBam_$f/genome_results.txt | grep "number of T's" | awk '{print "number_of_T",$5}'
+cat filteredBam_$f/genome_results.txt | grep "mapped reads with deletion percentage" | awk '{print "percent_mapped_reads_with_DEL",$7}'
+cat filteredBam_$f/genome_results.txt | grep "mapped reads with insertion percentage" | awk '{print "percent_mapped_reads_with_INS",$7}'
+cat filteredBam_$f/genome_results.txt | grep "mean coverageData" | awk '{print "meann_coverage",substr($4,1,length($4)-1)}'
+cat filteredBam_$f/genome_results.txt | grep "reference with a coverageData >= 10X" | awk '{print "percent_genome_covered_over_10X",$4}'
 
+) | sed 's/[,%]//g'  | tr ' ' '\t' > $f.qc.tsv
 
-
-#insert size
-
-#properly paired (samtools flag stat)
-
-#mean coverage (average read per postion)
-
-#breath of coverage (nb of position under 100)
-
-#breath of coverage (nb of position under 400)
-
-
-echo $f $step $mod $nb_r1 $nb_r2 $libtype $nb_r1_ad $nb_r2_ad $nb_bp1_qual $nb_bp2_qual $nb_r_tg $nb_read_Bam $bai_exist $last_bam_lines $last_bai_exist | tr ' ' '\t' > $f.stat.tsv
-rm $f.bwa.bam.bai $f.bwa.bam $f.bwa.sam $f.bwa.sort.bam $f.last_bam_lines $f.bwa.sort.bam.bai $f.bwa.amplicon_trim_smooth.bam ${f}_1_fixed.fastq.gz ${f}_2_fixed.fastq.gz ${f}_1.fastq.gz ${f}_2.fastq.gz ${f}.bwa.sort.amplicon_trim_smooth.bam
-rm -r $f.trimmedQ20
-fi
-
-cp finalbam ..
-cp finalbai
-cp qc .
-cp consensus
+cp $f.bwa.amplicon_trim_smooth.sorted.primaryOnly.bam ..
+cp $f.bwa.amplicon_trim_smooth.sorted.primaryOnly.bam.bai .. 
+cp $f.qc.tsv ..
+cp $f.bwa.amplicon_trim_smooth.primaryOnly.consensus ..
 rm *fastq.gz
 rm SRR13268199.trimmedQ20/*fq.gz
 cd ..
 tar -czvf $f.tar.gz $f
 rm -r $f
+fi
+echo $f is $pe_or_se
