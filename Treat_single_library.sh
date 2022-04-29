@@ -26,23 +26,28 @@ fastq-dump -I --gzip --split-e $file
 gunzip -c ${f}_1.fastq.gz | sed -E 's/(^[@+][ESD]RR[0-9]+\.[0-9]+)\.[12]/\1/' | gzip -c > ${f}_1_fixed.fastq.gz
 gunzip -c ${f}_2.fastq.gz | sed -E 's/(^[@+][ESD]RR[0-9]+\.[0-9]+)\.[12]/\1/' | gzip -c > ${f}_2_fixed.fastq.gz
 
-$tg --paired -q 20 -o $f.trimmedQ20 ${f}_1_fixed.fastq.gz ${f}_2_fixed.fastq.gz
+$tg --paired -q 20 -o $f.trimmedQ20 ${f}_1_fixed.fastq.gz ${f}_2_fixed.fastq.gz 2> $f.trim_galore_stderr.out
 
-bwa mem -o $f.bwa.sam $ref ${f}.trimmedQ20/${f}_1_fixed_val_1.fq.gz ${f}.trimmedQ20/${f}_2_fixed_val_2.fq.gz
+bwa mem -o $f.bwa.sam $ref ${f}.trimmedQ20/${f}_1_fixed_val_1.fq.gz ${f}.trimmedQ20/${f}_2_fixed_val_2.fq.gz 2> $f.bwa_stderr.out
 
 samtools view -Sb $f.bwa.sam > $f.bwa.bam
 samtools sort $f.bwa.bam > $f.bwa.sort.bam
 samtools index $f.bwa.sort.bam
 rm $f.bwa.bam $f.bwa.sam
 
+#AMmplicon trim
 ${ivar_path}/ivar trim -i $f.bwa.sort.bam -b $amplicons_path -q 15 -m 30 -s 4 -p $f.bwa.amplicon_trim_smooth -e > $f.ivar.out 
 
-samtools sort $f.bwa.amplicon_trim_smooth.bam > $f.bwa.amplicon_trim_smooth.sorted.bam
-samtools view -F 2048 -bo $f.bwa.amplicon_trim_smooth.sorted.primaryOnly.bam $f.bwa.amplicon_trim_smooth.sorted.bam
-samtools index $f.bwa.amplicon_trim_smooth.sorted.primaryOnly.bam
-rm $f.bwa.amplicon_trim_smooth.sorted.bam
+#Primary only
+samtools view -F 2048 -bo $f.bwa.amplicon_trim_smooth.primaryOnly.bam $f.bwa.amplicon_trim_smooth
+#sort
+samtools sort $f.bwa.amplicon_trim_smooth.primaryOnly.bam > $f.bwa.amplicon_trim_smooth.primaryOnly.sorted.bam
+rm $f.bwa.amplicon_trim_smooth.primaryOnly.bam
 
-samtools mpileup -d 10000 -A -Q 0 $f.bwa.amplicon_trim_smooth.sorted.primaryOnly.bam | ${ivar_path}/ivar consensus -p $f.bwa.amplicon_trim_smooth.primaryOnly.consensus -q 20 -t 0.75 -m 20 > $f.samtools.mpileup.out
+#index
+samtools index $f.bwa.amplicon_trim_smooth.primaryOnly.sorted.bam
+
+samtools mpileup -d 10000 -A -Q 0 $f.bwa.amplicon_trim_smooth.primaryOnly.sorted.bam | ${ivar_path}/ivar consensus -p $f.bwa.amplicon_trim_smooth.primaryOnly.consensus -q 20 -t 0.75 -m 20 > $f.samtools.mpileup.out
 
 
 ##########################
@@ -56,9 +61,9 @@ module load mugqic/qualimap/2.2.1
 
 qualimap bamqc -nt 1 -outformat PDF -bam $f.bwa.sort.bam -outdir initialBam_$f --java-mem-size=10G
 
-qualimap bamqc -nt 1 -outformat PDF -bam $f.bwa.amplicon_trim_smooth.sorted.primaryOnly.bam -outdir filteredBam_$f --java-mem-size=10G
+qualimap bamqc -nt 1 -outformat PDF -bam $f.bwa.amplicon_trim_smooth.primaryOnly.sorted.bam -outdir filteredBam_$f --java-mem-size=10G
 
-samtools flagstat $f.bwa.amplicon_trim_smooth.sorted.primaryOnly.bam > $f.samtools_flagstat.out
+samtools flagstat $f.bwa.amplicon_trim_smooth.primaryOnly.sorted.bam > $f.samtools_flagstat.out
 
 
 (
@@ -81,16 +86,17 @@ cat $f.trimmedQ20/${f}_2_fixed.fastq.gz_trimming_report.txt | grep "Quality-trim
 cat $f.trimmedQ20/${f}_2_fixed.fastq.gz_trimming_report.txt | grep "the length cutoff " | awk '{print "tg_too_short",$19}'
 
 #Test if the index exist for the bam after bwa and the final one
-ls $f.bwa.sort.bam.bai*  | awk 'END{print NR==1 ? "alignment_index_exist YES" : "alignment_index_exist NO"}'
-ls $f.bwa.amplicon_trim_smooth.sorted.primaryOnly.bam*  | awk 'END{print NR==1 ? "finalBAM_index_exist YES" : "finalBAM_index_exist NO"}'
+ls $f.bwa.sort.bam.bai  | awk 'END{print NR==1 ? "alignment_index_exist YES" : "alignment_index_exist NO"}'
+ls $f.bwa.amplicon_trim_smooth.primaryOnly.sorted.bam.bai  | awk 'END{print NR==1 ? "finalBAM_index_exist YES" : "finalBAM_index_exist NO"}'
 
 #number of read and trimming 
 cat initialBam_$f/genome_results.txt | grep "number of mapped reads" | awk '{print "mapped_reads_raw",$6}'
-cat initialBam_$f/genome_results.txt | grep "number of supplementary alignments" | awk '{print "supp_alignement",$6}'
+cat initialBam_$f/genome_results.txt | grep "number of supplementary alignments" | awk 'BEGIN{n=0}{n=$6}END{print "supp_alignement",n}' 
 cat $f.ivar.out | grep "Trimmed primers from" | awk '{print "reads_trimmed_with_primers",substr($5,2,length($5)-2)}'
 cat filteredBam_$f/genome_results.txt | grep "number of mapped reads" | awk '{print "primary_trimmed_mapped_reads",$6}'
 cat filteredBam_$f/genome_results.txt | grep "first in pair" | awk '{print "mapped_reads_R1",$10}'
 cat filteredBam_$f/genome_results.txt | grep "second in pair" | awk '{print "mapped_reads_R2",$10}'
+
 cat filteredBam_$f/genome_results.txt | grep "number of duplicated reads" | awk '{print "duplicated_reads",$7}'
 cat $f.samtools_flagstat.out | grep "properly paired"  | awk '{print "properly_paired",$1}'
 cat filteredBam_$f/genome_results.txt | grep "mean insert size" | awk '{print "mean_insert_size",$5}'
@@ -99,15 +105,15 @@ cat filteredBam_$f/genome_results.txt | grep "number of A's" | awk '{print "numb
 cat filteredBam_$f/genome_results.txt | grep "number of C's" | awk '{print "number_of_C",$5}'
 cat filteredBam_$f/genome_results.txt | grep "number of G's" | awk '{print "number_of_G",$5}'
 cat filteredBam_$f/genome_results.txt | grep "number of T's" | awk '{print "number_of_T",$5}'
-cat filteredBam_$f/genome_results.txt | grep "mapped reads with deletion percentage" | awk '{print "percent_mapped_reads_with_DEL",$7}'
-cat filteredBam_$f/genome_results.txt | grep "mapped reads with insertion percentage" | awk '{print "percent_mapped_reads_with_INS",$7}'
-cat filteredBam_$f/genome_results.txt | grep "mean coverageData" | awk '{print "meann_coverage",substr($4,1,length($4)-1)}'
+cat filteredBam_$f/genome_results.txt | grep "mapped reads with deletion percentage" | awk 'BEGIN{n=0}{n=$7}END{{print "percent_mapped_reads_with_DEL",n}'
+cat filteredBam_$f/genome_results.txt | grep "mapped reads with insertion percentage" | awk 'BEGIN{n=0}{n=$7}END{{print "percent_mapped_reads_with_INS",n}'
+cat filteredBam_$f/genome_results.txt | grep "mean coverageData" | awk '{print "mean_coverage",substr($4,1,length($4)-1)}'
 cat filteredBam_$f/genome_results.txt | grep "reference with a coverageData >= 10X" | awk '{print "percent_genome_covered_over_10X",$4}'
 
 ) | sed 's/[,%]//g'  | tr ' ' '\t' > $f.qc.tsv
 
-cp $f.bwa.amplicon_trim_smooth.sorted.primaryOnly.bam ..
-cp $f.bwa.amplicon_trim_smooth.sorted.primaryOnly.bam.bai .. 
+cp $f.bwa.amplicon_trim_smooth.primaryOnly.sorted.bam ..
+cp $f.bwa.amplicon_trim_smooth.primaryOnly.sorted.bam.bai .. 
 cp $f.qc.tsv ..
 cp $f.bwa.amplicon_trim_smooth.primaryOnly.consensus ..
 rm *fastq.gz
