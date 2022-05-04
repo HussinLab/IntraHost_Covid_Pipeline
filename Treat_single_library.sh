@@ -6,7 +6,15 @@ file=$1
 f=$(echo $file | rev | cut -f1 -d'/' | cut -f2- -d'.' | rev)
 mkdir $f
 cd $f
-module load  StdEnv/2020 gcc/9.3.0 sra-toolkit/2.10.8 htslib
+
+if [ $CC_CLUSTER == "graham" ]; then 
+	module load  StdEnv/2020 gcc/9.3.0 htslib
+	pathtosratoolkit="/project/6005588/shared/bin/sra-tools/sratoolkit.2.10.8-centos_linux64/bin/"
+elif [ $CC_CLUSTER == "narval" ]; then 
+	module load  StdEnv/2020 gcc/9.3.0 sra-toolkit/2.10.8 htslib
+	pathtosratoolkit=""
+fi
+
 source /project/6005588/shared/virtualenv_python_2.7/bin/activate
 module load bwa samtools
 
@@ -18,12 +26,15 @@ amplicons_path=/lustre06/project/6005588/shared/References/covid-19/artic_ncov20
 ref=/project/6005588/shared/References/covid-19/NCBI/NC_045512.2/sequence.fasta
 gff=/project/6005588/shared/References/covid-19/NCBI/NC_045512.2/GCF_009858895.2_ASM985889v3_genomic.gff
 
-pe_or_se=$(fastq-dump -X 1 -Z --split-spot $file 2> /dev/null | wc -l | awk '$1!=8{print "single-end"}$1==8{print "paired-end"}' 2> /dev/null)
+
+
+
+pe_or_se=$(${pathtosratoolkit}fastq-dump -X 1 -Z --split-spot $file 2> /dev/null | wc -l | awk '$1!=8{print "single-end"}$1==8{print "paired-end"}' 2> /dev/null)
 
 echo LIBRARY : $f is $pe_or_se
 
 if [ $pe_or_se == "paired-end" ]; then 
-fastq-dump -I --gzip --split-e $file
+${pathtosratoolkit}fastq-dump -I --gzip --split-e $file
 
 gunzip -c ${f}_1.fastq.gz | sed -E 's/(^[@+][ESD]RR[0-9]+\.[0-9]+)\.[12]/\1/' | gzip -c > ${f}_1_fixed.fastq.gz
 gunzip -c ${f}_2.fastq.gz | sed -E 's/(^[@+][ESD]RR[0-9]+\.[0-9]+)\.[12]/\1/' | gzip -c > ${f}_2_fixed.fastq.gz
