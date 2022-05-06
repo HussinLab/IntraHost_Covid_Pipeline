@@ -4,8 +4,7 @@ file=$1
 
 
 f=$(echo $file | rev | cut -f1 -d'/' | cut -f2- -d'.' | rev)
-mkdir $f
-cd $f
+
 
 if [ $CC_CLUSTER == "graham" ]; then 
 	module load  StdEnv/2020 gcc/9.3.0 htslib
@@ -34,6 +33,10 @@ pe_or_se=$(${pathtosratoolkit}fastq-dump -X 1 -Z --split-spot $file 2> /dev/null
 echo LIBRARY : $f is $pe_or_se
 
 if [ $pe_or_se == "paired-end" ]; then 
+
+mkdir $f
+cd $f
+
 ${pathtosratoolkit}fastq-dump -I --gzip --split-e $file
 
 gunzip -c ${f}_1.fastq.gz | sed -E 's/(^[@+][ESD]RR[0-9]+\.[0-9]+)\.[12]/\1/' | gzip -c > ${f}_1_fixed.fastq.gz
@@ -134,4 +137,5 @@ rm $f.trimmedQ20/*fq.gz
 cd ..
 tar -czvf $f.tar.gz $f
 rm -r $f
+echo $f is finished with $(wc -l $f.qc.tsv | cut -f1) lines in the qc
 fi
