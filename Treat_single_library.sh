@@ -18,9 +18,9 @@ source /project/6005588/shared/virtualenv_python_2.7/bin/activate
 module load bwa samtools
 
 tg=/project/6005588/shared/bin/trim_galore/TrimGalore-0.6.0/trim_galore
-ivar_path=/lustre06/project/6005588/shared/bin/iVar/ivar-1.3/bin
+ivar_path=/project/6005588/shared/bin/iVar/ivar-1.3/bin
 
-amplicons_path=/lustre06/project/6005588/shared/References/covid-19/artic_ncov2019_primers/hybrid_amplicon_artic_v3_v4_v4.1/nCOV-2019.scheme.hybrid_v3_v4_v4.1.modCHRname.bed
+amplicons_path=/project/6005588/shared/References/covid-19/artic_ncov2019_primers/hybrid_amplicon_artic_v3_v4_v4.1/nCOV-2019.scheme.hybrid_v3_v4_v4.1.modCHRname.bed
 
 ref=/project/6005588/shared/References/covid-19/NCBI/NC_045512.2/sequence.fasta
 gff=/project/6005588/shared/References/covid-19/NCBI/NC_045512.2/GCF_009858895.2_ASM985889v3_genomic.gff
@@ -56,6 +56,7 @@ ${ivar_path}/ivar trim -i $f.bwa.sort.bam -b $amplicons_path -q 15 -m 30 -s 4 -p
 
 #Primary only
 samtools view -F 2048 -bo $f.bwa.amplicon_trim_smooth.primaryOnly.bam $f.bwa.amplicon_trim_smooth.bam
+rm $f.bwa.amplicon_trim_smooth.bam
 #sort
 samtools sort $f.bwa.amplicon_trim_smooth.primaryOnly.bam > $f.bwa.amplicon_trim_smooth.primaryOnly.sorted.bam
 rm $f.bwa.amplicon_trim_smooth.primaryOnly.bam
