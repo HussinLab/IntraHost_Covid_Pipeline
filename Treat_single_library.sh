@@ -14,7 +14,7 @@ elif [ $CC_CLUSTER == "narval" ]; then
 	pathtosratoolkit=""
 fi
 
-source /project/6005588/shared/virtualenv_python_2.7/bin/activate
+source /project/6005588/shared/virtualenv_python_3.8.10/bin/activate
 module load bwa samtools
 
 tg=/project/6005588/shared/bin/trim_galore/TrimGalore-0.6.0/trim_galore
@@ -74,7 +74,7 @@ mv ${f}_temp1.txt $f.base
 ##########################
 ############# QC PART
 ##########################
-module load java
+module load java/1.8.0_192
 export MUGQIC_INSTALL_HOME=/cvmfs/soft.mugqic/CentOS6
 module use $MUGQIC_INSTALL_HOME/modulefiles
 
@@ -133,10 +133,7 @@ cat filteredBam_$f/genome_results.txt | grep "reference with a coverageData >= 1
 
 ) | sed 's/[,%]//g'  | tr ' ' '\t' > $f.qc.tsv
 
-cp $f.bwa.amplicon_trim_smooth.primaryOnly.sorted.bam ..
-cp $f.bwa.amplicon_trim_smooth.primaryOnly.sorted.bam.bai .. 
-cp $f.qc.tsv ..
-cp $f.bwa.amplicon_trim_smooth.primaryOnly.consensus.fa ..
+cp $f.base ..
 rm *fastq.gz
 rm $f.trimmedQ20/*fq.gz
 cd ..
