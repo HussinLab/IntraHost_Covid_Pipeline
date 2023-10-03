@@ -66,7 +66,7 @@ samtools index $f.bwa.amplicon_trim_smooth.primaryOnly.sorted.bam
 
 samtools mpileup -d 10000 -A -Q 0 $f.bwa.amplicon_trim_smooth.primaryOnly.sorted.bam | ${ivar_path}/ivar consensus -p $f.bwa.amplicon_trim_smooth.primaryOnly.consensus -q 20 -t 0.75 -m 20 > $f.samtools.mpileup.out
 
-samtools mpileup $f.bwa.amplicon_trim_smooth.primaryOnly.sorted.bam -Q 20 -q 0 -B -A -d 600000 --fasta-ref $ref | awk '$4>100' > $f.mpileup
+samtools mpileup $f.bwa.amplicon_trim_smooth.primaryOnly.sorted.bam -Q 20 -q 0 -B -A -d 600000 --fasta-ref $ref  > $f.mpileup
 perl /home/poujolra/projects/def-hussinju/shared/bin/pileup2base/pileup2base.pl -i $f.mpileup -prefix ${f}_temp
 
 mv ${f}_temp1.txt $f.base
