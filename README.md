@@ -17,6 +17,7 @@ CutAdapt v4.2
 
 iVar v1.3
 pileup2base perl script (https://github.com/riverlee/pileup2base)
+
 Qualimap v2.2.1
 
 The pipeline could also work with other program versions.
