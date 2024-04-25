@@ -1,4 +1,4 @@
-# IntraHost Covid Pipeline workin on NCBI SRA files.
+# IntraHost Covid Pipeline working on NCBI SRA files.
 
 Here's a pipeline to treat downloaded SRA files from NCBI to get in the end a count of each allele per position.
 
