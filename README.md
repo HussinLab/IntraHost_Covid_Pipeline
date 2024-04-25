@@ -1,4 +1,4 @@
-#IntraHost Covid Pipeline workin on NCBI SRA files.
+# IntraHost Covid Pipeline workin on NCBI SRA files.
 
 Here's a pipeline to treat downloaded SRA files from NCBI to get in the end a count of each allele per position.
 
@@ -7,7 +7,7 @@ To make this work, you can either launch the Treat_single_library.sh bash script
 The complete path of the SRA file need to be present in the text file that will be given, including the ".sra suffix". The number of parallel jobs can be changed manually in the Treat_List_Of_library.sh file.
 
 
-##Here are the current dependencies :
+## Here are the current dependencies :
 
 - SRA toolkit (v 2.1.0.8)
 - BWA v0.7.17
