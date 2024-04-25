@@ -9,7 +9,7 @@ The complete path of the SRA file need to be present in the text file that will 
 
 ## Here are the current dependencies :
 
-- SRA toolkit (v 2.1.0.8)
+- SRA toolkit v2.1.0.8
 - BWA v0.7.17
 - samtools v1.17
 - htslib v1.17
