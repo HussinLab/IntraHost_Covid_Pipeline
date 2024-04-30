@@ -20,7 +20,7 @@ module load bwa samtools
 tg=/project/6005588/shared/bin/trim_galore/TrimGalore-0.6.0/trim_galore
 ivar_path=/project/6005588/shared/bin/iVar/ivar-1.3/bin
 
-amplicons_path=references/hybrid_amplicon_artic_v3_v4_v4.1/nCOV-2019.scheme.hybrid_v3_v4_v4.1.modCHRname.bed
+amplicons_path=references/nCOV-2019.scheme.hybrid_v3_v4_v4.1.modCHRname.bed
 
 ref=references/NC_045512.2.fasta
 gff=references/GCF_009858895.2_ASM985889v3_genomic.gff
